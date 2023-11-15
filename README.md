@@ -28,9 +28,9 @@ sh scripts/setup.sh
 nibid start
 ```
 
-## Contract Quickstart
+## DeFi (CW20) Contract Quickstart
 
-### Compile Contract
+### Compile CW20 Contract
 
 ```bash
 cd contracts/cw20-base
@@ -124,4 +124,94 @@ nibid q wasm contract-state smart $CONTRACT_ADDRESS \
 # query all accounts
 nibid q wasm contract-state smart $CONTRACT_ADDRESS \
 '{"all_accounts": {}}' | jq
+```
+
+## NFT (CW721) Contract Quickstart
+
+### Compile CW721 Contract
+
+```bash
+cd contracts/cw721-base
+RUSTFLAGS="-C link-arg=-s" cargo wasm
+
+cp target/wasm32-unknown-unknown/release/cw721_base.wasm ../../artifacts/
+```
+
+### Upload CW721 Contract
+
+```bash
+nibid tx wasm store artifacts/cw721_base.wasm \
+--from validator \
+--gas auto \
+--gas-adjustment 1.5 \
+--yes | tx
+```
+
+### Instantiate CW721 Contract
+
+```bash
+cat << EOF | jq | tee instantiate.json
+{
+  "name": "UWaterloo Blockchain NFT",
+  "symbol": "UW-NFT",
+  "minter": "$(nibid keys show validator -a)"
+}
+EOF
+
+
+nibid tx wasm instantiate 2 "$(cat instantiate.json)" \
+--label "uwaterloo-nft" \
+--no-admin \
+--from validator \
+--gas auto \
+--gas-adjustment 1.5 \
+--yes | tx
+```
+
+### Query CW721 Contract
+
+```bash
+CONTRACT_ADDRESS=nibi1nc5tatafv6eyq7llkr2gv50ff9e22mnf70qgjlv737ktmt4eswrqugq26k
+
+# query contract info
+nibid q wasm contract-state smart $CONTRACT_ADDRESS \
+'{"contract_info": {}}' | jq
+
+# query number of tokens
+nibid q wasm contract-state smart $CONTRACT_ADDRESS \
+'{"num_tokens": {}}' | jq
+
+# query all tokens
+nibid q wasm contract-state smart $CONTRACT_ADDRESS \
+'{"all_tokens": {}}' | jq
+
+# query minter
+nibid q wasm contract-state smart $CONTRACT_ADDRESS \
+'{"minter": {}}' | jq
+```
+
+### Execute CW721 Contract
+
+```bash
+CONTRACT_ADDRESS=nibi1nc5tatafv6eyq7llkr2gv50ff9e22mnf70qgjlv737ktmt4eswrqugq26k
+
+# create new account
+nibid keys add user1
+USER_ADDRESS=$(nibid keys show user1 -a)
+
+# mint NFT
+nibid tx wasm execute $CONTRACT_ADDRESS \
+"{\"mint\": { \"token_id\": \"goose\", \"owner\": \"$USER_ADDRESS\" } }" \
+--from validator \
+--gas auto \
+--gas-adjustment 1.5 \
+--yes | tx
+
+# query user balance
+nibid q wasm contract-state smart $CONTRACT_ADDRESS \
+"{\"tokens\": { \"owner\": \"$USER_ADDRESS\" } }" | jq
+
+# query all accounts
+nibid q wasm contract-state smart $CONTRACT_ADDRESS \
+'{"all_tokens": {} }' | jq
 ```
